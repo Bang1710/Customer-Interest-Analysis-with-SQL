@@ -235,7 +235,7 @@ SELECT
   COUNT(DISTINCT interest_id) AS unique_interests
 FROM #interest_metrics_edited
 ```
---Create a CTE max_composition to find the maximum composition value for each interest.
+- Create a CTE max_composition to find the maximum composition value for each interest.
 - To keep the corresponding month_year, use the window funtion MAX() OVER() instead of the aggregate function MAX() with GROUP BY.
 - Create a CTE composition_rank to rank all maximum compositions for each interest_id in any month_year from the CTE max_composition
 - Filter top 10 or bottom 10 interests using WHERE
