@@ -59,7 +59,7 @@ ALTER COLUMN month_year DATE;
 
 SELECT TOP(10) * FROM fresh_segments.dbo.interest_metrics;
 ```
-### Result
+#### Result
 | _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking |
 |--------|-------|------------|-------------|-------------|-------------|---------|--------------------|
 | 7      | 2018  | 2018-07-01 | 32486       | 11.89       | 6.19        | 1       | 99.86              |
@@ -81,7 +81,7 @@ SELECT month_year, COUNT(*) AS cnt
 GROUP BY month_year
 ORDER BY month_year;
 ```
-### Result
+#### Result
 | month_year | cnt  |
 |------------|------|
 | NULL       | 1194 |
@@ -107,7 +107,7 @@ SELECT * FROM interest_metrics
     WHERE month_year IS NULL
 ORDER BY interest_id DESC;
 ```
-### Result
+#### Result
 | _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking |
 |--------|-------|------------|-------------|-------------|-------------|---------|--------------------|
 | NULL   | NULL  | NULL       | 21246       | 1.61        | 0.68        | 1191    | 0.25               |
@@ -136,11 +136,12 @@ SELECT
 FROM interest_metrics metrics
     FULL JOIN interest_map map ON metrics.interest_id = map.id;
 ```
-### Result
+#### Result
 | count_id_in_map | count_id_in_metric | not_in_metric | not_in_map |
 |--------------|------------------|---------------|------------|
 | 1209         | 1202             | NULL          | 7          |
- Comments:
+
+Comments:
 - There are 1209 id in table interest_map.
 - There are 1202 interest_id in table interest_metrics.
 - No id values appear in table interest_map but don't appear in interest_id of table interest_metrics.
@@ -152,7 +153,7 @@ FROM interest_metrics metrics
 SELECT COUNT(*) AS count_id_in_map
 FROM interest_map;
 ```
-### Result
+#### Result
 | map_id_count |
 |--------------|
 | 1209         |
@@ -170,7 +171,7 @@ FROM interest_metrics metrics
     ON metrics.interest_id = map.id
 WHERE metrics.interest_id = 21246;
 ```
-### Result
+#### Result
 | _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking | interest_name                   | interest_summary                                       | created_at                   | last_modified                |
 |--------|-------|------------|-------------|-------------|-------------|---------|--------------------|---------------------------------|--------------------------------------------------------|------------------------------|------------------------------|
 | 7      | 2018  | 2018-07-01 | 21246       | 2.26        | 0.65        | 722     | 0.96               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
