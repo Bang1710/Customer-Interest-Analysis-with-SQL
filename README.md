@@ -81,6 +81,24 @@ SELECT month_year, COUNT(*) AS cnt
 GROUP BY month_year
 ORDER BY month_year;
 ```
+### Result
+| month_year | cnt  |
+|------------|------|
+| NULL       | 1194 |
+| 2018-07-01 | 729  |
+| 2018-08-01 | 767  |
+| 2018-09-01 | 780  |
+| 2018-10-01 | 857  |
+| 2018-11-01 | 928  |
+| 2018-12-01 | 995  |
+| 2019-01-01 | 973  |
+| 2019-02-01 | 1121 |
+| 2019-03-01 | 1136 |
+| 2019-04-01 | 1099 |
+| 2019-05-01 | 857  |
+| 2019-06-01 | 824  |
+| 2019-07-01 | 864  |
+| 2019-08-01 | 1149 |
 ### 3. Handling Null Values:
 - Trả lời câu hỏi về việc xử lý giá trị null trong bảng `fresh_segments.interest_metrics`.
 ```sql
@@ -88,7 +106,21 @@ ORDER BY month_year;
 SELECT * FROM interest_metrics
     WHERE month_year IS NULL
 ORDER BY interest_id DESC;
-
+```
+### Result
+| _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking |
+|--------|-------|------------|-------------|-------------|-------------|---------|--------------------|
+| NULL   | NULL  | NULL       | 21246       | 1.61        | 0.68        | 1191    | 0.25               |
+| NULL   | NULL  | NULL       | NULL        | 1.51        | 0.63        | 1193    | 0.08               |
+| NULL   | NULL  | NULL       | NULL        | 1.64        | 0.62        | 1194    | 0                  |
+| NULL   | NULL  | NULL       | NULL        | 6.12        | 2.85        | 43      | 96.4               |
+| NULL   | NULL  | NULL       | NULL        | 7.13        | 2.84        | 45      | 96.23              |
+| NULL   | NULL  | NULL       | NULL        | 6.82        | 2.84        | 45      | 96.23              |
+| NULL   | NULL  | NULL       | NULL        | 5.96        | 2.83        | 47      | 96.06              |
+| NULL   | NULL  | NULL       | NULL        | 7.73        | 2.82        | 48      | 95.98              |
+| NULL   | NULL  | NULL       | NULL        | 5.37        | 2.82        | 48      | 95.98              |
+| NULL   | NULL  | NULL       | NULL        | 6.15        | 2.82        | 48      | 95.98              |
+```sql
 --Delete rows that are null in column interest_id (1193 rows)
 DELETE FROM interest_metrics
 WHERE interest_id IS NULL;
@@ -104,6 +136,10 @@ SELECT
 FROM interest_metrics metrics
     FULL JOIN interest_map map ON metrics.interest_id = map.id;
 ```
+### Result
+| count_id_in_map | count_id_in_metric | not_in_metric | not_in_map |
+|--------------|------------------|---------------|------------|
+| 1209         | 1202             | NULL          | 7          |
  Comments:
 - There are 1209 id in table interest_map.
 - There are 1202 interest_id in table interest_metrics.
@@ -116,6 +152,10 @@ FROM interest_metrics metrics
 SELECT COUNT(*) AS count_id_in_map
 FROM interest_map;
 ```
+### Result
+| map_id_count |
+|--------------|
+| 1209         |
 ### 6. Table Join for Analysis:
    - Xác định loại join cần sử dụng để phân tích dữ liệu và minh chứng.
  ```sql
@@ -129,7 +169,21 @@ FROM interest_metrics metrics
     JOIN interest_map map
     ON metrics.interest_id = map.id
 WHERE metrics.interest_id = 21246;
-```   
+```
+### Result
+| _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking | interest_name                   | interest_summary                                       | created_at                   | last_modified                |
+|--------|-------|------------|-------------|-------------|-------------|---------|--------------------|---------------------------------|--------------------------------------------------------|------------------------------|------------------------------|
+| 7      | 2018  | 2018-07-01 | 21246       | 2.26        | 0.65        | 722     | 0.96               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 8      | 2018  | 2018-08-01 | 21246       | 2.13        | 0.59        | 765     | 0.26               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 9      | 2018  | 2018-09-01 | 21246       | 2.06        | 0.61        | 774     | 0.77               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 10     | 2018  | 2018-10-01 | 21246       | 1.74        | 0.58        | 855     | 0.23               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 11     | 2018  | 2018-11-01 | 21246       | 2.25        | 0.78        | 908     | 2.16               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 12     | 2018  | 2018-12-01 | 21246       | 1.97        | 0.7         | 983     | 1.21               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 1      | 2019  | 2019-01-01 | 21246       | 2.05        | 0.76        | 954     | 1.95               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 2      | 2019  | 2019-02-01 | 21246       | 1.84        | 0.68        | 1109    | 1.07               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 3      | 2019  | 2019-03-01 | 21246       | 1.75        | 0.67        | 1123    | 1.14               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| 4      | 2019  | 2019-04-01 | 21246       | 1.58        | 0.63        | 1092    | 0.64               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
+| NULL   | NULL  | NULL       | 21246       | 1.61        | 0.68        | 1191    | 0.25               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
 ### 7. Validating Data in Joined Tables:
    - Kiểm tra xem có bản ghi nào có giá trị `month_year` trước giá trị `created_at` trong bảng `fresh_segments.interest_map` hay không.
 ```sql
@@ -139,6 +193,9 @@ FROM interest_metrics metrics
     ON metrics.interest_id = map.id
 WHERE metrics.month_year < CAST(map.created_at AS DATE);
 ```
+| cnt  |
+|------|
+| 188  |
 - There are 188 month_year values that are before created_at values. 
 - However, it may be the case that those 188 created_at values were created at the same month as month_year values.
 - The reason is because month_year values were set on the first date of the month by default in Question 1.
@@ -153,6 +210,9 @@ WHERE metrics.month_year < CAST(DATEADD(DAY, -DAY(map.created_at)+1, map.created
 
 SELECT map.created_at, DATEADD(DAY, -DAY(map.created_at)+1, map.created_at) FROM interest_map as map
 ```
+| cnt  |
+|------|
+| 0  |
 - Yes, all month_year and created_at were at the same month. Therefore, these values are valid.
 ## B. Segment Analysis
 
