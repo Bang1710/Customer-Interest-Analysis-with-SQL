@@ -42,7 +42,7 @@ In particular - the composition and rankings for different interests are provide
 
 ## A. Data Exploration and Cleansing
 
-1. **Update Data Type for `month_year` column** 
+### 1. Update Data Type for `month_year` column 
 - Dùng truy vấn SQL để cập nhật kiểu dữ liệu của cột `month_year` thành kiểu DATE.
 ```sql
 --Modify the length of column month_year so it can store 10 characters
@@ -57,9 +57,23 @@ SET month_year =  CONVERT(DATE, '01-' + month_year, 105)
 ALTER TABLE fresh_segments.dbo.interest_metrics
 ALTER COLUMN month_year DATE;
 
-SELECT TOP(5) * FROM fresh_segments.dbo.interest_metrics;
+SELECT TOP(10) * FROM fresh_segments.dbo.interest_metrics;
 ```
-2. **Count of Records for Each `month_year` Value**:
+### Result
+| _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking |
+|--------|-------|------------|-------------|-------------|-------------|---------|--------------------|
+| 7      | 2018  | 2018-07-01 | 32486       | 11.89       | 6.19        | 1       | 99.86              |
+| 7      | 2018  | 2018-07-01 | 6106        | 9.93        | 5.31        | 2       | 99.73              |
+| 7      | 2018  | 2018-07-01 | 18923       | 10.85       | 5.29        | 3       | 99.59              |
+| 7      | 2018  | 2018-07-01 | 6344        | 10.32       | 5.1         | 4       | 99.45              |
+| 7      | 2018  | 2018-07-01 | 100         | 10.77       | 5.04        | 5       | 99.31              |
+| 7      | 2018  | 2018-07-01 | 69          | 10.82       | 5.03        | 6       | 99.18              |
+| 7      | 2018  | 2018-07-01 | 79          | 11.21       | 4.97        | 7       | 99.04              |
+| 7      | 2018  | 2018-07-01 | 6111        | 10.71       | 4.83        | 8       | 98.9               |
+| 7      | 2018  | 2018-07-01 | 6214        | 9.71        | 4.83        | 8       | 98.9               |
+| 7      | 2018  | 2018-07-01 | 19422       | 10.11       | 4.81        | 10      | 98.63              |
+
+### 2. Count of Records for Each `month_year` Value:
 - Sử dụng truy vấn SQL để đếm số bản ghi cho mỗi giá trị `month_year` được sắp xếp theo thứ tự thời gian.
 ```sql
 SELECT month_year, COUNT(*) AS cnt
@@ -67,69 +81,131 @@ SELECT month_year, COUNT(*) AS cnt
 GROUP BY month_year
 ORDER BY month_year;
 ```
-3. **Handling Null Values**:
-   - Trả lời câu hỏi về việc xử lý giá trị null trong bảng `fresh_segments.interest_metrics`.
-4. **Identify Missing or Extra Interest IDs**:
-   - Sử dụng truy vấn SQL để xác định số lượng `interest_id` không tồn tại trong bảng `fresh_segments.interest_map`.
-5. **Summarize Interest IDs**:
+### 3. Handling Null Values:
+- Trả lời câu hỏi về việc xử lý giá trị null trong bảng `fresh_segments.interest_metrics`.
+```sql
+--interest_id = 21246 have NULL _month, _year, and month_year
+SELECT * FROM interest_metrics
+    WHERE month_year IS NULL
+ORDER BY interest_id DESC;
+
+--Delete rows that are null in column interest_id (1193 rows)
+DELETE FROM interest_metrics
+WHERE interest_id IS NULL;
+```
+### 4. Identify Missing or Extra Interest IDs:
+- Sử dụng truy vấn SQL để xác định số lượng `interest_id` không tồn tại trong bảng `fresh_segments.interest_map`.
+```sql
+SELECT 
+    COUNT(DISTINCT map.id) AS count_id_in_map,
+    COUNT(DISTINCT metrics.interest_id) AS count_id_in_metric,
+    SUM(CASE WHEN map.id IS NULL THEN 1 END) AS not_in_metric,
+    SUM(CASE WHEN metrics.interest_id is NULL THEN 1 END) AS not_in_map
+FROM interest_metrics metrics
+    FULL JOIN interest_map map ON metrics.interest_id = map.id;
+```
+ Comments:
+- There are 1209 id in table interest_map.
+- There are 1202 interest_id in table interest_metrics.
+- No id values appear in table interest_map but don't appear in interest_id of table interest_metrics.
+- There are 7 interest_id appearing in table interest_metrics but not appearing in id of table interest_map.
+
+### 5. Summarize Interest IDs:
    - Tính toán tổng số bản ghi cho mỗi giá trị `interest_id` trong bảng `fresh_segments.interest_map`.
-6. **Table Join for Analysis**:
+```sql
+SELECT COUNT(*) AS count_id_in_map
+FROM interest_map;
+```
+### 6. Table Join for Analysis:
    - Xác định loại join cần sử dụng để phân tích dữ liệu và minh chứng.
-7. **Validating Data in Joined Tables**:
+ ```sql
+SELECT 
+    metrics.*,
+    map.interest_name,
+    map.interest_summary,
+    map.created_at,
+    map.last_modified
+FROM interest_metrics metrics
+    JOIN interest_map map
+    ON metrics.interest_id = map.id
+WHERE metrics.interest_id = 21246;
+```   
+### 7. Validating Data in Joined Tables:
    - Kiểm tra xem có bản ghi nào có giá trị `month_year` trước giá trị `created_at` trong bảng `fresh_segments.interest_map` hay không.
-
-### Phần B: Segment Analysis
-
-1. **Top and Bottom Interests by Composition**:
-   - Xác định 10 interests có giá trị composition lớn nhất và nhỏ nhất cho mỗi `month_year`.
-2. **Lowest Average Ranking Values**:
-   - Tìm 5 interests có giá trị ranking trung bình thấp nhất.
-3. **Largest Standard Deviation in Percentile Ranking**:
-   - Tìm 5 interests có độ lệch chuẩn lớn nhất trong giá trị percentile_ranking.
-4. **Minimum and Maximum Percentile Rankings**:
-   - Xác định giá trị percentile_ranking tối thiểu và tối đa cho 5 interests từ câu hỏi trước.
-
-### Phần C: Index Analysis
-
-1. **Top 10 Interests by Average Composition**:
-   - Xác định 10 interests hàng đầu theo giá trị composition trung bình cho mỗi tháng.
-2. **Most Frequently Appearing Interest**:
-   - Xác định interest xuất hiện nhiều nhất trong top 10.
-3. **Average of Average Composition**:
-   - Tính trung bình của giá trị composition trung bình cho 10 interests hàng đầu cho mỗi tháng.
-4. **3-Month Rolling Average of Max Composition**:
-   - Tính giá trị trung bình 3 tháng cho giá trị composition lớn nhất từ tháng 9 năm 2018 đến tháng 8 năm 2019 và bao gồm các interests đứng đầu trước đó.
-
-## Đóng góp
-
-Nếu bạn muốn đóng góp vào dự án, vui lòng mở một issue hoặc gửi pull request trên GitHub.
-
-## Giấy phép
-
-[MIT License](LICENSE)
-
-# Fresh Segments Database Analysis README
-
-## A. Data Exploration and Cleansing
-
-### 1. Update `month_year` column in `fresh_segments.interest_metrics` table:
-- Change the data type of the `month_year` column to DATE with the start of the month.
+```sql
+SELECT COUNT(*) AS count_month_year_before_created_at
+FROM interest_metrics metrics
+    JOIN interest_map map
+    ON metrics.interest_id = map.id
+WHERE metrics.month_year < CAST(map.created_at AS DATE);
+```
+- There are 188 month_year values that are before created_at values. 
+- However, it may be the case that those 188 created_at values were created at the same month as month_year values.
+- The reason is because month_year values were set on the first date of the month by default in Question 1.
+- To check that, we turn the create_at to the first date of the month:
 
 ```sql
--- SQL Queries
-ALTER TABLE interest_metrics
-ALTER COLUMN month_year VARCHAR(10);
+SELECT COUNT(*) AS count_month_year_before_created_at_in_first_date_of_the_month
+FROM interest_metrics metrics
+    JOIN interest_map map
+    ON map.id = metrics.interest_id
+WHERE metrics.month_year < CAST(DATEADD(DAY, -DAY(map.created_at)+1, map.created_at) AS DATE);
 
-UPDATE interest_metrics
-SET month_year = CONVERT(DATE, '01-' + month_year, 105);
-
-ALTER TABLE fresh_segments.dbo.interest_metrics
-ALTER COLUMN month_year DATE;
-
-SELECT TOP(5) * FROM fresh_segments.dbo.interest_metrics;
+SELECT map.created_at, DATEADD(DAY, -DAY(map.created_at)+1, map.created_at) FROM interest_map as map
 ```
--- SQL Query
-SELECT month_year, COUNT(*) AS cnt
-FROM interest_metrics
-GROUP BY month_year
-ORDER BY month_year;
+- Yes, all month_year and created_at were at the same month. Therefore, these values are valid.
+## B. Segment Analysis
+
+### 1. Top and Bottom Interests by Composition:
+- Xác định 10 interests có giá trị composition lớn nhất và nhỏ nhất cho mỗi `month_year`.
+```sql
+
+```
+### Result
+
+### 2. Lowest Average Ranking Values:
+   - Tìm 5 interests có giá trị ranking trung bình thấp nhất.
+```sql
+
+```
+### Result
+
+### 3. Largest Standard Deviation in Percentile Ranking:
+   - Tìm 5 interests có độ lệch chuẩn lớn nhất trong giá trị percentile_ranking.
+```sql
+
+```
+### Result
+
+### 4. Minimum and Maximum Percentile Rankings:
+   - Xác định giá trị percentile_ranking tối thiểu và tối đa cho 5 interests từ câu hỏi trước.
+```sql
+
+```
+### Result
+
+
+## C. Index Analysis
+
+### 1. Top 10 Interests by Average Composition:
+- Xác định 10 interests hàng đầu theo giá trị composition trung bình cho mỗi tháng.
+```sql
+
+```
+### Result
+
+### 2. Most Frequently Appearing Interest:
+- Xác định interest xuất hiện nhiều nhất trong top 10.
+```sql
+
+```
+### Result
+
+### 3. Average of Average Composition:
+- Tính trung bình của giá trị composition trung bình cho 10 interests hàng đầu cho mỗi tháng.
+```sql
+
+```
+### Result
+
+
