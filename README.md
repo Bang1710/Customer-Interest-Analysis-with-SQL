@@ -59,7 +59,6 @@ ALTER COLUMN month_year DATE;
 
 SELECT TOP(10) * FROM fresh_segments.dbo.interest_metrics;
 ```
-#### Result
 | _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking |
 |--------|-------|------------|-------------|-------------|-------------|---------|--------------------|
 | 7      | 2018  | 2018-07-01 | 32486       | 11.89       | 6.19        | 1       | 99.86              |
@@ -81,7 +80,6 @@ SELECT month_year, COUNT(*) AS cnt
 GROUP BY month_year
 ORDER BY month_year;
 ```
-#### Result
 | month_year | cnt  |
 |------------|------|
 | NULL       | 1194 |
@@ -107,7 +105,6 @@ SELECT * FROM interest_metrics
     WHERE month_year IS NULL
 ORDER BY interest_id DESC;
 ```
-#### Result
 | _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking |
 |--------|-------|------------|-------------|-------------|-------------|---------|--------------------|
 | NULL   | NULL  | NULL       | 21246       | 1.61        | 0.68        | 1191    | 0.25               |
@@ -136,7 +133,7 @@ SELECT
 FROM interest_metrics metrics
     FULL JOIN interest_map map ON metrics.interest_id = map.id;
 ```
-#### Result
+
 | count_id_in_map | count_id_in_metric | not_in_metric | not_in_map |
 |--------------|------------------|---------------|------------|
 | 1209         | 1202             | NULL          | 7          |
@@ -153,7 +150,7 @@ Comments:
 SELECT COUNT(*) AS count_id_in_map
 FROM interest_map;
 ```
-#### Result
+
 | map_id_count |
 |--------------|
 | 1209         |
@@ -171,7 +168,7 @@ FROM interest_metrics metrics
     ON metrics.interest_id = map.id
 WHERE metrics.interest_id = 21246;
 ```
-#### Result
+
 | _month | _year | month_year | interest_id | composition | index_value | ranking | percentile_ranking | interest_name                   | interest_summary                                       | created_at                   | last_modified                |
 |--------|-------|------------|-------------|-------------|-------------|---------|--------------------|---------------------------------|--------------------------------------------------------|------------------------------|------------------------------|
 | 7      | 2018  | 2018-07-01 | 21246       | 2.26        | 0.65        | 722     | 0.96               | Readers of El Salvadoran Content | People reading news from El Salvadoran media sources. | 2018-06-11 17:50:04.0000000 | 2018-06-11 17:50:04.0000000 |
@@ -219,54 +216,213 @@ SELECT map.created_at, DATEADD(DAY, -DAY(map.created_at)+1, map.created_at) FROM
 
 ### 1. Top and Bottom Interests by Composition:
 - Xác định 10 interests có giá trị composition lớn nhất và nhỏ nhất cho mỗi `month_year`.
+- Create a temporary table ```interest_metrics_edited```
 ```sql
-
+SELECT * INTO #interest_metrics_edited
+FROM interest_metrics
+WHERE interest_id NOT IN (
+    SELECT interest_id
+    FROM interest_metrics
+    WHERE interest_id IS NOT NULL
+    GROUP BY interest_id
+    HAVING COUNT(DISTINCT month_year) < 6
+);
 ```
-### Result
+- Check the count of interests_id
+```sql
+SELECT 
+  COUNT(interest_id) AS all_interests,
+  COUNT(DISTINCT interest_id) AS unique_interests
+FROM #interest_metrics_edited
+```
+--Create a CTE max_composition to find the maximum composition value for each interest.
+- To keep the corresponding month_year, use the window funtion MAX() OVER() instead of the aggregate function MAX() with GROUP BY.
+- Create a CTE composition_rank to rank all maximum compositions for each interest_id in any month_year from the CTE max_composition
+- Filter top 10 or bottom 10 interests using WHERE
+- then JOIN max_composition with interest_map to take the interest_name for each corresponding interest_id
 
+```sql
+WITH 
+    max_composition AS (
+    SELECT 
+        month_year,
+        interest_id,
+        MAX(composition) OVER(PARTITION BY interest_id) AS largest_composition
+    FROM #interest_metrics_edited -- filtered dataset in which interests with less than 6 months are removed
+    WHERE month_year IS NOT NULL
+),
+    composition_rank AS (
+    SELECT *,
+        DENSE_RANK() OVER(ORDER BY largest_composition DESC) AS rnk --largest composition des -> rank asc
+    FROM max_composition
+)
+```
+- Top 10 interests that have the largest composition values
+```sql
+SELECT 
+  DISTINCT TOP 10 cr.interest_id,
+  im.interest_name,
+  cr.rnk
+FROM composition_rank cr
+JOIN interest_map im ON cr.interest_id = im.id
+ORDER BY cr.rnk
+```
+- Bottom 10 interests that have the largest composition values
+```sql
+SELECT 
+  DISTINCT TOP 10 cr.interest_id,
+  im.interest_name,
+  cr.rnk
+FROM composition_rank cr
+JOIN interest_map im ON cr.interest_id = im.id
+ORDER BY cr.rnk DESC;
+```
 ### 2. Lowest Average Ranking Values:
    - Tìm 5 interests có giá trị ranking trung bình thấp nhất.
 ```sql
+WITH 
+    avg_ranking_temp AS (
+    SELECT 
+        interest_id,
+        interest_name,
+        AVG(ranking) OVER(PARTITION BY interest_id) AS avg_ranking_value
+    FROM #interest_metrics_edited as ime
+    JOIN interest_map as im on ime.interest_id = im.id
+    WHERE month_year IS NOT NULL
+)
 
+SELECT DISTINCT TOP 5 
+        avg_tb.interest_id,
+        avg_tb.interest_name,
+        avg_tb.avg_ranking_value
+FROM avg_ranking_temp as avg_tb
+ORDER BY avg_tb.avg_ranking_value
 ```
-### Result
-
 ### 3. Largest Standard Deviation in Percentile Ranking:
    - Tìm 5 interests có độ lệch chuẩn lớn nhất trong giá trị percentile_ranking.
 ```sql
-
+SELECT 
+    DISTINCT TOP 5
+    metrics.interest_id,
+    map.interest_name,
+    ROUND(STDEV(metrics.percentile_ranking) OVER(PARTITION BY metrics.interest_id), 2) AS std_percentile_ranking
+FROM #interest_metrics_edited metrics
+JOIN interest_map map
+    ON metrics.interest_id = map.id
+ORDER BY std_percentile_ranking DESC;
 ```
-### Result
-
 ### 4. Minimum and Maximum Percentile Rankings:
-   - Xác định giá trị percentile_ranking tối thiểu và tối đa cho 5 interests từ câu hỏi trước.
+- Xác định giá trị percentile_ranking tối thiểu và tối đa cho 5 interests từ câu hỏi trước.
+- Based on the query for the previous question
 ```sql
+WITH 
+    largest_std_interests AS (
+    SELECT 
+    DISTINCT TOP 5 metrics.interest_id,
+        map.interest_name,
+        map.interest_summary,
+        ROUND(STDEV(metrics.percentile_ranking) OVER(PARTITION BY metrics.interest_id), 2) AS std_percentile_ranking
+    FROM #interest_metrics_edited metrics
+    JOIN interest_map map ON metrics.interest_id = map.id
+    ORDER BY std_percentile_ranking DESC
+),
+    max_min_percentiles AS (
+    SELECT 
+        lsi.interest_id,
+        lsi.interest_name,
+        lsi.interest_summary,
+        ime.month_year,
+        ime.percentile_ranking,
+        MAX(ime.percentile_ranking) OVER(PARTITION BY lsi.interest_id) AS max_pct_rnk,
+        MIN(ime.percentile_ranking) OVER(PARTITION BY lsi.interest_id) AS min_pct_rnk
+    FROM largest_std_interests lsi
+    JOIN #interest_metrics_edited ime ON lsi.interest_id = ime.interest_id
+)
 
+SELECT 
+    interest_id,
+    interest_name,
+    interest_summary,
+    MAX(CASE WHEN percentile_ranking = max_pct_rnk THEN month_year END) AS max_pct_month_year,
+    MAX(CASE WHEN percentile_ranking = max_pct_rnk THEN percentile_ranking END) AS max_pct_rnk,
+    MIN(CASE WHEN percentile_ranking = min_pct_rnk THEN month_year END) AS min_pct_month_year,
+    MIN(CASE WHEN percentile_ranking = min_pct_rnk THEN percentile_ranking END) AS min_pct_rnk
+FROM max_min_percentiles
+GROUP BY interest_id, interest_name, interest_summary;
 ```
-### Result
-
 
 ## C. Index Analysis
 
 ### 1. Top 10 Interests by Average Composition:
 - Xác định 10 interests hàng đầu theo giá trị composition trung bình cho mỗi tháng.
+- -Average composition can be calculated by dividing the composition column by the index_value column rounded to 2 decimal places.
 ```sql
-
+WITH avg_composition_rank AS (
+    SELECT 
+        metrics.interest_id,
+        map.interest_name,
+        metrics.month_year,
+        ROUND(metrics.composition / metrics.index_value, 2) AS avg_composition,
+        DENSE_RANK() OVER(PARTITION BY metrics.month_year ORDER BY metrics.composition / metrics.index_value DESC) AS rnk
+    FROM interest_metrics metrics
+    JOIN interest_map map 
+        ON metrics.interest_id = map.id
+    WHERE metrics.month_year IS NOT NULL
+)
+SELECT * FROM avg_composition_rank 
+WHERE rnk <= 10; 
 ```
-### Result
-
 ### 2. Most Frequently Appearing Interest:
 - Xác định interest xuất hiện nhiều nhất trong top 10.
 ```sql
-
+WITH 
+    avg_composition_rank AS (
+        SELECT 
+            metrics.interest_id,
+            map.interest_name,
+            metrics.month_year,
+            ROUND(metrics.composition / metrics.index_value, 2) AS avg_composition,
+            DENSE_RANK() OVER(PARTITION BY metrics.month_year ORDER BY metrics.composition / metrics.index_value DESC) AS rnk
+        FROM interest_metrics metrics
+        JOIN interest_map map 
+            ON metrics.interest_id = map.id
+        WHERE metrics.month_year IS NOT NULL
+),
+    frequent_interests AS (
+        SELECT 
+            interest_id,
+            interest_name,
+            COUNT(*) AS freq
+        FROM avg_composition_rank
+        WHERE rnk <= 10
+        GROUP BY interest_id, interest_name
+)
+SELECT * FROM frequent_interests
+WHERE freq IN (SELECT MAX(freq) FROM frequent_interests);
 ```
-### Result
-
 ### 3. Average of Average Composition:
 - Tính trung bình của giá trị composition trung bình cho 10 interests hàng đầu cho mỗi tháng.
 ```sql
+WITH avg_composition_rank AS (
+    SELECT 
+        metrics.interest_id,
+        map.interest_name,
+        metrics.month_year,
+        ROUND(metrics.composition / metrics.index_value, 2) AS avg_composition,
+        DENSE_RANK() OVER(PARTITION BY metrics.month_year ORDER BY metrics.composition / metrics.index_value DESC) AS rnk
+    FROM interest_metrics metrics
+    JOIN interest_map map 
+        ON metrics.interest_id = map.id
+    WHERE metrics.month_year IS NOT NULL
+)
 
+SELECT 
+    month_year,
+    AVG(avg_composition) AS avg_of_avg_composition
+FROM avg_composition_rank
+WHERE rnk <= 10 
+GROUP BY month_year;
 ```
-### Result
+
 
 
